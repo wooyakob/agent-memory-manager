@@ -239,24 +239,31 @@ class ConnectionManager:
         return {"documents": docs}
 
     def get_groups(self) -> Dict[str, Any]:
+        """Distinct `type` / `user_id` values with a document count for each.
+
+        GROUP BY (rather than SELECT DISTINCT) so the sidebar can show a real
+        count per group; the targeted GSIs on `type` and `user_id` cover both
+        queries, so this is an index scan rather than a collection fetch.
+        """
         path = self._col_path()
         groups: Dict[str, Any] = {}
 
-        try:
-            type_q = f"SELECT DISTINCT RAW m.`type` FROM {path} AS m WHERE m.`type` IS NOT MISSING AND m.`type` IS NOT NULL"
-            types = [r for r in self._cluster.query(type_q) if r]
-            if types:
-                groups["type"] = types
-        except Exception:
-            pass
-
-        try:
-            user_q = f"SELECT DISTINCT RAW m.user_id FROM {path} AS m WHERE m.user_id IS NOT MISSING AND m.user_id IS NOT NULL"
-            users = [r for r in self._cluster.query(user_q) if r]
-            if users:
-                groups["user_id"] = users
-        except Exception:
-            pass
+        for key, field in (("type", "`type`"), ("user_id", "user_id")):
+            try:
+                q = (
+                    f"SELECT m.{field} AS value, COUNT(*) AS count FROM {path} AS m "
+                    f"WHERE m.{field} IS NOT MISSING AND m.{field} IS NOT NULL "
+                    f"GROUP BY m.{field} ORDER BY m.{field}"
+                )
+                rows = [
+                    {"value": r["value"], "count": r.get("count", 0)}
+                    for r in self._cluster.query(q)
+                    if isinstance(r, dict) and r.get("value")
+                ]
+                if rows:
+                    groups[key] = rows
+            except Exception:
+                continue
 
         return groups
 

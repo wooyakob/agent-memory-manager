@@ -235,21 +235,30 @@ class TestGroups:
         resp = client.get("/api/memories/groups")
         assert resp.status_code == 400
 
-    def test_groups_returns_types_and_users(self, connected_client, mock_cluster):
-        # Override query to return group data
+    def test_groups_returns_types_and_users_with_counts(self, connected_client, mock_cluster):
+        # Override query to return grouped counts
         def _q(q, *a, **kw):
-            if "type" in q and "DISTINCT" in q:
-                return iter(["preference", "fact"])
-            if "user_id" in q and "DISTINCT" in q:
-                return iter(["u1", "u2"])
-            return iter([{"total": 0}])
+            if "GROUP BY" not in q:
+                return iter([{"total": 0}])
+            if "`type`" in q:
+                return iter([{"value": "fact", "count": 3}, {"value": "preference", "count": 7}])
+            if "user_id" in q:
+                return iter([{"value": "u1", "count": 4}, {"value": "u2", "count": 6}])
+            return iter([])
 
         mock_cluster.query.side_effect = _q
 
         resp = connected_client.get("/api/memories/groups")
         assert resp.status_code == 200
         body = resp.json()
-        assert "type" in body or "user_id" in body
+        assert body["type"] == [
+            {"value": "fact", "count": 3},
+            {"value": "preference", "count": 7},
+        ]
+        assert body["user_id"] == [
+            {"value": "u1", "count": 4},
+            {"value": "u2", "count": 6},
+        ]
 
     def test_groups_sdk_error_returns_empty(self, connected_client, mock_cluster):
         # get_groups catches per-query errors internally and returns partial results;

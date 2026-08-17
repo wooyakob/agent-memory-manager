@@ -209,14 +209,14 @@ function Sidebar({ total, filtered, groups, themes, activeFilter, timeRange, onF
       {groups.type?.length > 0 && (
         <>
           <SectionHead label="Type" />
-          {groups.type.map(t => <NavBtn key={t} id={`type:${t}`} label={t} count="?" color={typeColor(t)} />)}
+          {groups.type.map(t => <NavBtn key={t.value} id={`type:${t.value}`} label={t.value} count={t.count} color={typeColor(t.value)} />)}
         </>
       )}
 
       {groups.user_id?.length > 0 && (
         <>
           <SectionHead label="User" />
-          {groups.user_id.map(u => <NavBtn key={u} id={`user:${u}`} label={u} count="?" color={C.muted} />)}
+          {groups.user_id.map(u => <NavBtn key={u.value} id={`user:${u.value}`} label={u.value} count={u.count} color={C.muted} />)}
         </>
       )}
 
